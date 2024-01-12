@@ -14,11 +14,14 @@
       uniform mat4 uTransformMatrix;
       uniform mat4 uProjectionMatrix;
 
-      in vec2 aVertexPosition;
+      in vec3 aVertexPosition;
+      in vec3 aVertexColor;
+
+      out vec4 vVertexColor;
   
       void main(void) {
-        gl_Position = uProjectionMatrix * uTransformMatrix * vec4(aVertexPosition, 0.0, 1.0);
-        //gl_Position = vec4(aVertexPosition, 0.0, 1.0);
+        vVertexColor = vec4(aVertexColor, 1.0);
+        gl_Position = uProjectionMatrix * uTransformMatrix * vec4(aVertexPosition, 1.0);
       }
     </script>
   
@@ -27,12 +30,13 @@
       #version 300 es
       precision mediump float;
   
-      // Color that is the result of this shader
+      in vec4 vVertexColor;
+
       out vec4 fragColor;
   
       void main(void) {
-        // Set the result as red
-        fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        //fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        fragColor = vVertexColor;
       }
     </script>
   </head>
@@ -47,10 +51,6 @@
         <canvas id="gl"></canvas>
       </div>
     </div>
-
-    <!-- <canvas id="webgl-canvas" width="800" height="600">
-      Your browser does not support the HTML5 canvas element.
-    </canvas> -->
 
     <script src="utils.js"></script>
     <script src="code.js"></script>

@@ -14,35 +14,7 @@ async function main() {
   const styleP = fetch('tokyo-railways.cycss').then(res => res.text());
   const [graph, style] = await Promise.all([graphP, styleP]);
 
-  // const graph = {
-  //   elements: [ 
-  //     { data: { id: 'a' }, position: { x: -0.9, y:  0.9} },
-  //     { data: { id: 'b' }, position: { x: -0.9, y: -0.9} },
-  //     { data: { id: 'c' }, position: { x:  0.9, y: -0.9} },
-  //     { data: { id: 'd' }, position: { x:  0.9, y:  0.9} },
-  //     { data: { id: 'ab', source: 'a', target: 'b' } },
-  //     { data: { id: 'bc', source: 'b', target: 'c' } },
-  //     { data: { id: 'cd', source: 'c', target: 'd' } },
-  //     { data: { id: 'da', source: 'd', target: 'a' } },
-  //   ]
-  // };
-  // const style = [
-  //   { selector: 'node',
-  //     style: {
-  //       width: 0.0,
-  //       height: 0.0,
-  //     }
-  //   },
-  //   { selector: 'edge',
-  //     style: {
-  //       color: 'white',
-  //     }
-  //   }
-  // ];
-
   const cy = initCy('cy', graph, style);
-  cy.fit();
-
   const gl = initGl('gl');
   const program = createShaderProgram(gl);
   
@@ -57,13 +29,14 @@ async function main() {
 
 function initGl(id) {
   const canvas = document.getElementById(id);
+
   // TODO why do I have to do this???
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight / 2;
 
   const gl = canvas.getContext('webgl2');
 
-  gl.clearColor(0.3, 0.3, 0.3, 1); // Set the clear color to be black
+  gl.clearColor(0.3, 0.3, 0.3, 1); // background color
   return gl;
 }
 
@@ -82,6 +55,7 @@ function createShaderProgram(gl) {
   }
 
   program.aVertexPosition   = gl.getAttribLocation(program,  'aVertexPosition');
+  program.aVertexColor      = gl.getAttribLocation(program,  'aVertexColor');
   program.uTransformMatrix  = gl.getUniformLocation(program, 'uTransformMatrix');
   program.uProjectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
 
@@ -104,6 +78,7 @@ function getTransformMatrix(cy) {
   return transform;
 }
 
+
 function getProjectionMatrix(cy, gl) {
   const { width, height } = gl.canvas;
 
@@ -118,43 +93,61 @@ function getProjectionMatrix(cy, gl) {
  * @param {WebGLRenderingContext} gl
  */
 function drawCyEdgesInWebGL(cy, gl, program) {
-  const vertices = getEdgeVertices(cy);
+  const { vertices, colors } = getEdgeVertices(cy);
+  // console.log(colors);
 
   const transformMatrix  = getTransformMatrix(cy);
   const projectionMatrix = getProjectionMatrix(cy, gl);
 
-  // Load vertex buffer
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+
   const vertexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.vertexAttribPointer(program.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(program.aVertexPosition);
 
-  // Clear the scene 
+  const colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(program.aVertexColor, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(program.aVertexColor);
+
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.vertexAttribPointer(program.aVertexPosition, 2, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(program.aVertexPosition);
 
   gl.uniformMatrix4fv(program.uTransformMatrix, false, transformMatrix);
   gl.uniformMatrix4fv(program.uProjectionMatrix, false, projectionMatrix);
 
-  gl.drawArrays(gl.LINES, 0, vertices.length / 2);
+  gl.drawArrays(gl.LINES, 0, vertices.length / 3);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.bindVertexArray(null);
 }
 
 
 function getEdgeVertices(cy) {
-  return cy
-    .edges()
+  const edges = cy.edges();
+
+  const vertices = edges
     .map(edge => {
       const sp = edge.source().position();
       const tp = edge.target().position();
-      return [sp.x, sp.y, tp.x, tp.y];
+      return [sp.x, sp.y, 0, tp.x, tp.y, 0];
     })
     .flat();
+
+  const colors = edges
+    .map(edge => {
+      const color = edge.pstyle('line-color').value;
+      // const opacity = e.pstyle('line-opacity').value;
+      return [color[0], color[1], color[2], color[0], color[1], color[2]];
+    })
+    .flat()
+    .map(c => c / 255);
+
+  return { vertices, colors };
 }
 
 
