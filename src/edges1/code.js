@@ -1,31 +1,30 @@
-
-// TODO
-/*
-Get verticies and indicies from cy.js
-Get the transform from cy.js
-*/
-
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 
 
 async function main() {
-  const graphP = fetch('tokyo-railways.json').then(res => res.json());
-  const styleP = fetch('tokyo-railways.cycss').then(res => res.text());
-  const [graph, style] = await Promise.all([graphP, styleP]);
+  // Init Cytoscape
+  const [ graph, style ] = await Promise.all([
+    fetch('tokyo-railways.json').then(res => res.json()),
+    fetch('tokyo-railways.cycss').then(res => res.text())
+  ]);
 
   const cy = initCy('cy', graph, style);
-  const gl = initGl('gl');
-  const program = createShaderProgram(gl);
-  
-  cy.on('pan', evt => {
-    drawCyEdgesInWebGL(cy, gl, program);
-  });
 
-  drawCyEdgesInWebGL(cy, gl, program);
+  // Init WebGL
+  const gl = initGl('gl');
+  const program = await createShaderProgram(gl);
+
+  const draw = () => drawCyEdgesInWebGL(cy, gl, program);
+  
+  // Set up events to sync from the cytoscape canvas to the webgl canvas
+  cy.on('pan', draw);
+  cy.nodes().on('drag', draw);
+  cy.ready(draw);
 
   console.log("done");
 }
+
 
 function initGl(id) {
   const canvas = document.getElementById(id);
@@ -41,9 +40,11 @@ function initGl(id) {
 }
 
 
-function createShaderProgram(gl) {
-  const vertexShader   = utils.getShader(gl, 'vertex-shader');
-  const fragmentShader = utils.getShader(gl, 'fragment-shader');
+async function createShaderProgram(gl) {
+  const [ vertexShader, fragmentShader ] = await Promise.all([
+    utils.getShader(gl, 'shader-vertex.glsh'),
+    utils.getShader(gl, 'shader-fragment.glsh'),
+  ]);
 
   const program = gl.createProgram();
   gl.attachShader(program, vertexShader);
@@ -90,11 +91,14 @@ function getProjectionMatrix(cy, gl) {
 
 
 /**
+ * TODO: This function loads the data from cytoscape on every frame. Find a way to keep
+ * the data between frames and just update the transform/projection matricies. 
+ * What about when nodes are moved?
+ * 
  * @param {WebGLRenderingContext} gl
  */
 function drawCyEdgesInWebGL(cy, gl, program) {
   const { vertices, colors } = getEdgeVertices(cy);
-  // console.log(colors);
 
   const transformMatrix  = getTransformMatrix(cy);
   const projectionMatrix = getProjectionMatrix(cy, gl);

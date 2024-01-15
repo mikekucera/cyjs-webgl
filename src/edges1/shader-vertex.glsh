@@ -1,0 +1,15 @@
+#version 300 es
+precision mediump float;
+
+uniform mat4 uTransformMatrix;
+uniform mat4 uProjectionMatrix;
+
+in vec3 aVertexPosition;
+in vec3 aVertexColor;
+
+out vec4 vVertexColor;
+
+void main(void) {
+  vVertexColor = vec4(aVertexColor, 1.0);
+  gl_Position = uProjectionMatrix * uTransformMatrix * vec4(aVertexPosition, 1.0);
+}

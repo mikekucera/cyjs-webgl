@@ -2,19 +2,17 @@
 const utils = {
 
 
-  getShader: function(gl, id) {
-    const script = document.getElementById(id);
-    const shaderString = script.text.trim();
-
-    // Assign shader depending on the type of shader
+  getShader: async function(gl, file, type) {
+    // const script = document.getElementById(id);
+    const text = await fetch(file).then(res => res.text());
+    const shaderString = text.trim();
+    
     let shader;
-    if (script.type === 'x-shader/x-vertex') {
+    if (file.indexOf('vertex') >= 0) {
       shader = gl.createShader(gl.VERTEX_SHADER);
-    }
-    else if (script.type === 'x-shader/x-fragment') {
+    } else if (file.indexOf('fragment') >= 0) {
       shader = gl.createShader(gl.FRAGMENT_SHADER);
-    }
-    else {
+    } else {
       return null;
     }
 
